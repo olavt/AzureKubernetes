@@ -18,8 +18,15 @@ $ az group create --name TestAKS --location westeurope
 ```
 
 ### Create AKS cluster
+
 ```
-$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --generate-ssh-keys --kubernetes-version 1.8.7
+$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B1s --generate-ssh-keys --kubernetes-version 1.8.7
+```
+
+The above command will create a 1-node cluster using the VM-size "Standard_B1s". To see what VM-sizes are available in a given location issue the following command:
+
+```
+$ az vm list-sizes -l westeurope 
 ```
 
 ### Install kubectl on your local computer
@@ -70,5 +77,5 @@ $ kubectl get service homeautomationweb
 
 ### Scale the cluster
 ```
-$ az aks scale --name myAKSCluster --resource-group myResourceGroup --node-count 1
+$ az aks scale --name TestAKSCluster --resource-group TestAKS --node-count 2
 ```
