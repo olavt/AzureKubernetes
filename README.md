@@ -20,7 +20,7 @@ $ az group create --name TestAKS --location westeurope
 ### Create AKS cluster
 
 ```
-$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B1s --generate-ssh-keys --kubernetes-version 1.9.2
+$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys --kubernetes-version 1.9.6
 ```
 
 The above command will create a 1-node cluster using the VM-size "Standard_B1s". To see what VM-sizes are available in a given location issue the following command:
@@ -46,11 +46,11 @@ $ kubectl get nodes
 
 ### Upgrade to a newer Kubernetes version
 ```
-$ az aks get-versions --name TestAKSCluster --resource-group TestAKS --output table
+$ az aks get-versions --output table --location westeurope
 ```
 
 ```
-$ az aks upgrade --name TestAKSCluster --resource-group TestAKS --kubernetes-version 1.9.2
+$ az aks upgrade --name TestAKSCluster --resource-group TestAKS --kubernetes-version 1.9.6
 ```
 
 ### Create a secret for pulling the image from a private registry
