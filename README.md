@@ -36,7 +36,7 @@ $ az group create --name TestAKS --location westeurope
 ### Create AKS cluster
 
 ```
-$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys --kubernetes-version 1.9.11
+$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys --kubernetes-version 1.11.5
 ```
 
 The above command will create a 1-node cluster using the VM-size "Standard_B1s". To see what VM-sizes are available in a given location issue the following command:
@@ -131,10 +131,31 @@ $ helm init --service-account tiller
 $ helm repo update
 ```
 
+### Create a ConfigMap yaml named nginx-configuration.yaml with custom configuration for the NGINX controller
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configuration
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+data:
+  proxy_buffer_size:   "128k"
+  proxy_buffers:   "4 256k"
+  proxy_busy_buffers_size:   "256k"
+  large_client_header_buffers: "4 16k"
+
+Create the ConfigMap with the kubectl apply command:
+
+```
+kubectl apply -f nginx-configuration.yaml
+```
+
 ### Install the NGINX ingress controller
 
 ```
-$ helm install stable/nginx-ingress --namespace kube-system
+$ helm install stable/nginx-ingress --namespace kube-system -f values.yaml
 ```
 
 During the installation, an Azure public IP address is created for the ingress controller. To get the public IP address, use the kubectl get service command. It may take some time for the IP address to be assigned to the service.
@@ -158,7 +179,7 @@ Run the followin script to configure the DNS name
 IP="<Your external IP address>"
 
 # Name to associate with public IP address
-DNSNAME="test-aks-ingress"
+DNSNAME="<YourDNSName>"
 
 # Get resource group and public ip name
 RESOURCEGROUP=$(az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '$IP')].[resourceGroup]" --output tsv)
@@ -170,7 +191,7 @@ az network public-ip update --resource-group $RESOURCEGROUP --name  $PIPNAME --d
 
 If needed, run the following command to retrieve the FQDN. Update the IP address value with that of your ingress controller.
 ```
-$ az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '52.224.125.195')].[dnsSettings.fqdn]" --output tsv
+$ az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '$IP')].[dnsSettings.fqdn]" --output tsv
 ```
 
 ### Install KUBE-LEGO
@@ -200,10 +221,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - <YourDNSName>.eastus.cloudapp.azure.com
+    - <YourDNSName>.westeurope.cloudapp.azure.com
     secretName: tls-secret
   rules:
-  - host: <YourDNSName>.eastus.cloudapp.azure.com
+  - host: <YourDNSName>.westeurope.cloudapp.azure.com
     http:
       paths:
       - path: /
@@ -218,4 +239,4 @@ Create the ingress resource with the kubectl apply command:
 kubectl apply -f test-ingress.yaml
 ```
 
-Now you should be able to browse to https://<YourDNSName>.eastus.cloudapp.azure.com
+Now you should be able to browse to https://<YourDNSName>.westeurope.cloudapp.azure.com
