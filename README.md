@@ -262,6 +262,11 @@ Now you should be able to browse to https://<YourDNSName>.westeurope.cloudapp.az
 kubectl get configmaps --namespace kube-system
 ```
 
+Look at the yaml:
+```
+kubectl get configmaps handy-hound-nginx-ingress-controller --namespace kube-system -o yaml
+```
+
 ### Create a ConfigMap yaml named nginx-configmapn.yaml with custom configuration for the NGINX controller
 
 Use the same name inside the new file as was listed in the previous step.
