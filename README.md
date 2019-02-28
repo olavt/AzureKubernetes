@@ -135,26 +135,6 @@ $ helm init --service-account tiller
 $ helm repo update
 ```
 
-### Create a ConfigMap yaml named nginx-configuration.yaml with custom configuration for the NGINX controller
-
-```
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: silly-rat-nginx-ingress-controller
-data:
-  proxy_buffer_size:   "128k"
-  proxy_buffers:   "4 256k"
-  proxy_busy_buffers_size:   "256k"
-  large_client_header_buffers: "4 16k"
-```
-
-Create the ConfigMap with the kubectl apply command:
-
-```
-kubectl apply -f nginx-configuration.yaml
-```
-
 ### Install the NGINX ingress controller
 
 ```
@@ -272,3 +252,60 @@ kubectl apply -f test-ingress.yaml
 ```
 
 Now you should be able to browse to https://<YourDNSName>.westeurope.cloudapp.azure.com
+
+
+## Apply custom configuration for Nginx
+
+### Find the ConfigMap for Nginx
+
+```
+kubectl get configmaps --namespace kube-system
+```
+
+### Create a ConfigMap yaml named nginx-configmapn.yaml with custom configuration for the NGINX controller
+
+Use the same name inside the new file as was listed in the previous step.
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: handy-hound-nginx-ingress-controller
+  namespace: kube-system
+  labels:
+    app: nginx-ingress
+    chart: nginx-ingress-1.3.1
+    component: controller
+    heritage: Tiller
+    release: handy-hound
+data:
+  enable-vts-status: "false"
+  proxy_buffer_size:   "128k"
+  proxy_buffers:   "4 256k"
+  proxy_busy_buffers_size:   "256k"
+  large_client_header_buffers: "4 16k"
+```
+
+Update the ConfigMap with the kubectl apply command:
+
+```
+kubectl apply -f nginx-configmap.yaml
+```
+
+### Restart the pods to let the new configmap take effect
+
+Find the replicasets for the Nginx controller:
+```
+kubectl get replicasets --namespace kube-system
+```
+
+Stop all the pods in he replica set:
+```
+kubectl scale --replicas=0 --namespace kube-system rs/handy-hound-nginx-ingress-controller-56678949cd
+```
+
+Start the pod in he replica set:
+```
+kubectl scale --replicas=1 --namespace kube-system rs/handy-hound-nginx-ingress-controller-56678949cd 
+
+```
