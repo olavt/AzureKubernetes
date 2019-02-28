@@ -254,7 +254,7 @@ kubectl apply -f test-ingress.yaml
 Now you should be able to browse to https://<YourDNSName>.westeurope.cloudapp.azure.com
 
 
-## Apply custom configuration for Nginx
+## Apply custom configuration for Nginx to avoid "502 Bad Gateway" when app is using Azure AD Authentication
 
 ### Find the ConfigMap for Nginx
 
@@ -267,7 +267,7 @@ Look at the yaml:
 kubectl get configmaps handy-hound-nginx-ingress-controller --namespace kube-system -o yaml
 ```
 
-### Create a ConfigMap yaml named nginx-configmapn.yaml with custom configuration for the NGINX controller to avoid "502 Bad Gateway" when app is using Azure AD Authentication
+### Create a ConfigMap yaml named nginx-configmapn.yaml with custom configuration for the NGINX controller
 
 Use the same name inside the new file as was listed in the previous step.
 
