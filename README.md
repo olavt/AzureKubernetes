@@ -267,7 +267,7 @@ Look at the yaml:
 kubectl get configmaps handy-hound-nginx-ingress-controller --namespace kube-system -o yaml
 ```
 
-### Create a ConfigMap yaml named nginx-configmapn.yaml with custom configuration for the NGINX controller
+### Create a ConfigMap yaml named nginx-configmapn.yaml with custom configuration for the NGINX controller to avoid "502 Bad Gateway" when app is using Azure AD Authentication
 
 Use the same name inside the new file as was listed in the previous step.
 
