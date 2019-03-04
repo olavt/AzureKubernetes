@@ -113,8 +113,6 @@ $ kubectl get service homeautomationweb
 $ az aks scale --name TestAKSCluster --resource-group TestAKS --node-count 2
 ```
 
-## Configure HTTPS Ingress
-
 ### Configure your AKS cluster for Helm
 
 Make sure you read and follow the steps outlined in this article: [Install applications with Helm in Azure Kubernetes Service (AKS)](https://docs.microsoft.com/en-us/azure/aks/kubernetes-helm)
@@ -122,6 +120,35 @@ Make sure you read and follow the steps outlined in this article: [Install appli
 Run these commands from an Azure CLI (where Helm is installed by default)
 
 Make sure you have configured Kubectl as described earlier to allow access to your AKS cluster.
+
+### Create a service account for Tiller
+
+Create a file named helm-rbac.yaml and copy in the following YAML:
+```
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tiller
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tiller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: tiller
+    namespace: kube-system
+```
+
+Run it:
+```
+kubectl apply -f helm-rbac.yaml
+```
 
 ### Initialize Helm
 
@@ -135,7 +162,61 @@ $ helm init --service-account tiller
 $ helm repo update
 ```
 
-### Install the NGINX ingress controller
+## Configure HTTPS Ingress using Nginx
+
+### Install Nginx Manually
+
+Create the mandatory Nginx resources, use kubectl apply and the -f flag to specify the manifest file hosted on GitHub:
+```
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+```
+
+Create the LoadBalancer Service, kubectl apply a manifest file containing the Service definition:
+```
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/cloud-generic.yaml
+```
+
+In some cases you may need to change some of the Nginx configuration parameters. One example would be to support ASP.NET Core 2.2 applications using Azure AD Authentication. With default configuration you may get a "502 Bad Gateway" after authentication redirects back to the application.
+
+To modify Nginx configuration parameteres:
+
+Create a file named nginx-configmap.yaml with the content found in the first ConfigMap section https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml:
+```
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+```
+
+Add configuration values like this:
+```
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+data:
+  proxy_buffer_size: "16k"
+```
+
+Apply the configuration changes:
+```
+$ kubectl apply -f nginx-configmap.yaml
+```
+
+Check the assigned public IP address:
+
+```
+$ kubectl get service --namespace ingress-nginx
+
+### Install the NGINX ingress controller using Helm
 
 ```
 $ helm install stable/nginx-ingress --namespace kube-system
@@ -176,7 +257,7 @@ If needed, run the following command to retrieve the FQDN. Update the IP address
 $ az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '$IP')].[dnsSettings.fqdn]" --output tsv
 ```
 
-### Install cert-manager (formerly knows an KUBE-LEGO)
+### Install cert-manager (loosely based upon the work of kube-lego)
 
 Run the following script to install cert-manager:
 ```
@@ -187,7 +268,7 @@ kubectl apply \
 
 helm install stable/cert-manager \
     --namespace kube-system \
-    --set ingressShim.defaultIssuerName=letsencrypt-prod \
+    --set ingressShim.defaultIssuerName=letsencrypt-staging \
     --set ingressShim.defaultIssuerKind=ClusterIssuer \
     --version v0.6.0
 ```
@@ -195,18 +276,20 @@ helm install stable/cert-manager \
 ### Create a CA cluster issuer
 
 Before certificates can be issued, cert-manager requires an Issuer or ClusterIssuer resource. These Kubernetes resources are identical in functionality, however Issuer works in a single namespace, and ClusterIssuer works across all namespaces. For more information, see the cert-manager issuer documentation.
-Create a cluster issuer, such as cluster-issuer.yaml, using the following example manifest. Update the email address with a valid address from your organization:
+Create a cluster issuer, such as cluster-issuer.yaml, using the following example manifest.
+
+Note! Update the email address with a valid address from your organization:
 ```
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: ClusterIssuer
 metadata:
-  name: letsencrypt-prod
+  name: letsencrypt-staging
 spec:
   acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
     email: <Your email address>
     privateKeySecretRef:
-      name: letsencrypt-prod
+      name: letsencrypt-staging
     http01: {}
 ```
 
@@ -216,7 +299,7 @@ Create CA Cluster Issues resource with the kubectl apply command:
 kubectl apply -f cluster-issuer.yaml
 ```
 
-### Create an ingress route
+### Create an ingress route (for Nginx)
 
 This step assumes that you already have deployed some service (web application) to test with.
 
@@ -228,7 +311,7 @@ metadata:
   name: test-ingress
   annotations:
     kubernetes.io/ingress.class: nginx
-    certmanager.k8s.io/cluster-issuer: letsencrypt-prod
+    certmanager.k8s.io/cluster-issuer: letsencrypt-staging
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   tls:
@@ -253,64 +336,49 @@ kubectl apply -f test-ingress.yaml
 
 Now you should be able to browse to https://<YourDNSName>.westeurope.cloudapp.azure.com
 
+### Create an ingress route (for Træefik)
 
-## Apply custom configuration for Nginx to avoid "502 Bad Gateway" when app is using Azure AD Authentication
+This step assumes that you already have deployed some service (web application) to test with.
 
-### Find the ConfigMap for Nginx
-
+Create a test-ingress.yaml file with the following content:
 ```
-kubectl get configmaps --namespace kube-system
-```
-
-Look at the yaml:
-```
-kubectl get configmaps handy-hound-nginx-ingress-controller --namespace kube-system -o yaml
-```
-
-### Create a ConfigMap yaml named nginx-configmapn.yaml with custom configuration for the NGINX controller
-
-Use the same name inside the new file as was listed in the previous step.
-
-```
-apiVersion: v1
-kind: ConfigMap
+apiVersion: extensions/v1beta1
+kind: Ingress
 metadata:
-  name: handy-hound-nginx-ingress-controller
-  namespace: kube-system
-  labels:
-    app: nginx-ingress
-    chart: nginx-ingress-1.3.1
-    component: controller
-    heritage: Tiller
-    release: handy-hound
-data:
-  enable-vts-status: "false"
-  proxy_buffer_size:   "128k"
-  proxy_buffers:   "4 256k"
-  proxy_busy_buffers_size:   "256k"
-  large_client_header_buffers: "4 16k"
+  name: test-ingress
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    certmanager.k8s.io/cluster-issuer: letsencrypt-staging
+spec:
+  tls:
+  - hosts:
+    - <YourDNSName>.westeurope.cloudapp.azure.com
+    secretName: tls-secret
+  rules:
+  - host: <YourDNSName>.westeurope.cloudapp.azure.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: <YourTestService>
+          servicePort: 80
 ```
 
-Update the ConfigMap with the kubectl apply command:
+Create the ingress resource with the kubectl apply command:
 
 ```
-kubectl apply -f nginx-configmap.yaml
+kubectl apply -f test-ingress.yaml
 ```
 
-### Restart the pods to let the new configmap take effect
+Now you should be able to browse to https://<YourDNSName>.westeurope.cloudapp.azure.com
 
-Find the replicasets for the Nginx controller:
-```
-kubectl get replicasets --namespace kube-system
-```
 
-Stop all the pods in he replica set:
+To check the status of the generated certificate for TSL issue this command:
 ```
-kubectl scale --replicas=0 --namespace kube-system rs/handy-hound-nginx-ingress-controller-56678949cd
+$ kubectl get certificate
 ```
 
-Start the pod in he replica set:
+To drill into details if there are issues:
 ```
-kubectl scale --replicas=1 --namespace kube-system rs/handy-hound-nginx-ingress-controller-56678949cd 
-
+kubectl describe certificate
 ```
