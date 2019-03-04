@@ -147,7 +147,7 @@ subjects:
 
 Run it:
 ```
-kubectl apply -f helm-rbac.yaml
+$ kubectl apply -f helm-rbac.yaml
 ```
 
 ### Initialize Helm
@@ -215,6 +215,7 @@ Check the assigned public IP address:
 
 ```
 $ kubectl get service --namespace ingress-nginx
+```
 
 ### Install the NGINX ingress controller using Helm
 
@@ -296,7 +297,7 @@ spec:
 Create CA Cluster Issues resource with the kubectl apply command:
 
 ```
-kubectl apply -f cluster-issuer.yaml
+$ kubectl apply -f cluster-issuer.yaml
 ```
 
 ### Create an ingress route (for Nginx)
@@ -331,7 +332,7 @@ spec:
 Create the ingress resource with the kubectl apply command:
 
 ```
-kubectl apply -f test-ingress.yaml
+$ kubectl apply -f test-ingress.yaml
 ```
 
 Now you should be able to browse to https://<YourDNSName>.westeurope.cloudapp.azure.com
@@ -367,7 +368,7 @@ spec:
 Create the ingress resource with the kubectl apply command:
 
 ```
-kubectl apply -f test-ingress.yaml
+$ kubectl apply -f test-ingress.yaml
 ```
 
 Now you should be able to browse to https://<YourDNSName>.westeurope.cloudapp.azure.com
