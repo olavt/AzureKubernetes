@@ -381,5 +381,5 @@ $ kubectl get certificate
 
 To drill into details if there are issues:
 ```
-kubectl describe certificate
+$ kubectl describe certificate
 ```
