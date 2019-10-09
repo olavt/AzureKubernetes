@@ -23,11 +23,6 @@ $ az account list --output table
 $ az account set --subscription "<Subscription Id>"
 ```
 
-### Enabling AKS preview for your Azure subscription
-```
-$ az provider register -n Microsoft.ContainerService
-```
-
 ### Create a new Resource Group
 ```
 $ az group create --name TestAKS --location westeurope
