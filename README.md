@@ -31,13 +31,13 @@ $ az group create --name TestAKS --location westeurope
 ### Create AKS cluster
 
 ```
-$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys --kubernetes-version 1.12.5
+$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys --kubernetes-version 1.14.6
 ```
 
 The above command will create a 1-node cluster using the VM-size "Standard_B1s". To see what VM-sizes are available in a given location issue the following command:
 
 ```
-$ az vm list-sizes -l westeurope 
+$ az vm list-sizes -l westeurope --output table
 ```
 
 ### Install kubectl on your local computer
