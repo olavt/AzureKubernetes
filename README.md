@@ -31,7 +31,7 @@ $ az group create --name TestAKS --location westeurope
 ### Create AKS cluster
 
 ```
-$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys --kubernetes-version 1.14.6
+$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys --kubernetes-version 1.15.5
 ```
 
 The above command will create a 1-node cluster using the VM-size "Standard_B1s". To see what VM-sizes are available in a given location issue the following command:
@@ -100,7 +100,7 @@ $ az aks browse --resource-group TestAKS --name TestAKSCluster
 
 ### To get the Public IP address of a deployed service
 ```
-$ kubectl get service homeautomationweb
+$ kubectl get service <service-name>
 ```
 
 ### Scale the cluster
@@ -108,7 +108,7 @@ $ kubectl get service homeautomationweb
 $ az aks scale --name TestAKSCluster --resource-group TestAKS --node-count 2
 ```
 
-### Configure your AKS cluster for Helm
+## Configure your AKS cluster for Helm
 
 Make sure you read and follow the steps outlined in this article: [Install applications with Helm in Azure Kubernetes Service (AKS)](https://docs.microsoft.com/en-us/azure/aks/kubernetes-helm)
 
@@ -116,39 +116,9 @@ Run these commands from an Azure CLI (where Helm is installed by default)
 
 Make sure you have configured Kubectl as described earlier to allow access to your AKS cluster.
 
-### Create a service account for Tiller
-
-Create a file named helm-rbac.yaml and copy in the following YAML:
+### Add the official Helm stable charts repository
 ```
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: tiller
-  namespace: kube-system
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: tiller
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-  - kind: ServiceAccount
-    name: tiller
-    namespace: kube-system
-```
-
-Run it:
-```
-$ kubectl apply -f helm-rbac.yaml
-```
-
-### Initialize Helm
-
-```
-$ helm init --service-account tiller
+$ helm repo add stable https://kubernetes-charts.storage.googleapis.com/
 ```
 
 ### Update Helm repositories
@@ -163,47 +133,12 @@ $ helm repo update
 
 Create the mandatory Nginx resources, use kubectl apply and the -f flag to specify the manifest file hosted on GitHub:
 ```
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/mandatory.yaml
 ```
 
 Create the LoadBalancer Service, kubectl apply a manifest file containing the Service definition:
 ```
-$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/cloud-generic.yaml
-```
-
-In some cases you may need to change some of the Nginx configuration parameters. One example would be to support ASP.NET Core 2.2 applications using Azure AD Authentication. With default configuration you may get a "502 Bad Gateway" after authentication redirects back to the application.
-
-To modify Nginx configuration parameteres:
-
-Create a file named nginx-configmap.yaml with the content found in the first ConfigMap section https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml:
-```
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: nginx-configuration
-  namespace: ingress-nginx
-  labels:
-    app.kubernetes.io/name: ingress-nginx
-    app.kubernetes.io/part-of: ingress-nginx
-```
-
-Add configuration values like this:
-```
-kind: ConfigMap
-apiVersion: v1
-metadata:
-  name: nginx-configuration
-  namespace: ingress-nginx
-  labels:
-    app.kubernetes.io/name: ingress-nginx
-    app.kubernetes.io/part-of: ingress-nginx
-data:
-  proxy_buffer_size: "16k"
-```
-
-Apply the configuration changes:
-```
-$ kubectl apply -f nginx-configmap.yaml
+$ kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/static/provider/cloud-generic.yaml
 ```
 
 Check the assigned public IP address:
@@ -215,7 +150,7 @@ $ kubectl get service --namespace ingress-nginx
 ### Install the NGINX ingress controller using Helm
 
 ```
-$ helm install stable/nginx-ingress --namespace kube-system
+$ helm install nginx-ingress stable/nginx-ingress
 ```
 
 During the installation, an Azure public IP address is created for the ingress controller. To get the public IP address, use the kubectl get service command. It may take some time for the IP address to be assigned to the service.
@@ -223,7 +158,7 @@ During the installation, an Azure public IP address is created for the ingress c
 Check the assigned public IP address:
 
 ```
-$ kubectl get service -l app=nginx-ingress --namespace kube-system
+$ kubectl get service -l app=nginx-ingress
 NAME                                       TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)                      AGE
 eager-crab-nginx-ingress-controller        LoadBalancer   10.0.182.160   13.82.238.45   80:30920/TCP,443:30426/TCP   20m
 eager-crab-nginx-ingress-default-backend   ClusterIP      10.0.255.77    <none>         80/TCP                       20m
@@ -257,16 +192,26 @@ $ az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '$
 
 Run the following script to install cert-manager:
 ```
-kubectl label namespace kube-system certmanager.k8s.io/disable-validation=true
+# Install the CustomResourceDefinition resources separately
+kubectl apply --validate=false -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.11/deploy/manifests/00-crds.yaml
 
-kubectl apply \
-    -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.6/deploy/manifests/00-crds.yaml
+# Create the namespace for cert-manager
+kubectl create namespace cert-manager
 
-helm install stable/cert-manager \
-    --namespace kube-system \
-    --set ingressShim.defaultIssuerName=letsencrypt-staging \
-    --set ingressShim.defaultIssuerKind=ClusterIssuer \
-    --version v0.6.0
+# Label the cert-manager namespace to disable resource validation
+kubectl label namespace cert-manager cert-manager.io/disable-validation=true
+
+# Add the Jetstack Helm repository
+helm repo add jetstack https://charts.jetstack.io
+
+# Update your local Helm chart repository cache
+helm repo update
+
+# Install the cert-manager Helm chart
+helm install cert-manager \
+  --namespace cert-manager \
+  --version v0.11.0 \
+  jetstack/cert-manager
 ```
 
 ### Create a CA cluster issuer
@@ -276,16 +221,16 @@ Create a cluster issuer, such as cluster-issuer.yaml, using the following exampl
 
 Note! Update the email address with a valid address from your organization:
 ```
-apiVersion: certmanager.k8s.io/v1alpha1
+apiVersion: cert-manager.io/v1alpha2
 kind: ClusterIssuer
 metadata:
-  name: letsencrypt-staging
+  name: letsencrypt-prod
 spec:
   acme:
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    server:  https://acme-v02.api.letsencrypt.org/directory
     email: <Your email address>
     privateKeySecretRef:
-      name: letsencrypt-staging
+      name: letsencrypt-prod
     http01: {}
 ```
 
@@ -307,7 +252,8 @@ metadata:
   name: test-ingress
   annotations:
     kubernetes.io/ingress.class: nginx
-    certmanager.k8s.io/cluster-issuer: letsencrypt-staging
+    certmanager.k8s.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"  # To avoid 502 Bad Gateway when using Azure AD authentication
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   tls:
