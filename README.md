@@ -231,7 +231,10 @@ spec:
     email: <Your email address>
     privateKeySecretRef:
       name: letsencrypt-prod
-    http01: {}
+    solvers:
+    - http01:
+        ingress:
+          class:  nginx
 ```
 
 Create CA Cluster Issues resource with the kubectl apply command:
@@ -252,7 +255,7 @@ metadata:
   name: test-ingress
   annotations:
     kubernetes.io/ingress.class: nginx
-    certmanager.k8s.io/cluster-issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/proxy-buffer-size: "16k"  # To avoid 502 Bad Gateway when using Azure AD authentication
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
