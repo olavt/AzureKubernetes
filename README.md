@@ -281,6 +281,25 @@ $ kubectl apply -f test-ingress.yaml
 
 Now you should be able to browse to https://<YourDNSName>.westeurope.cloudapp.azure.com
 
+### Check generated certificates
+
+To verify that the certificate was created successfully, issue the following command:
+```
+$ kubectl describe certificate tls-secret
+```
+
+If the certificate was issued, you will see output similar to the following:
+```
+Events:
+  Type    Reason        Age    From          Message
+  ----    ------        ----   ----          -------
+  Normal  GeneratedKey  26m    cert-manager  Generated a new private key
+  Normal  Requested     26m    cert-manager  Created new CertificateRequest resource "tls-secret-3533869916"
+  Normal  Issued        7m17s  cert-manager  Certificate issued successfully
+```
+
+## Configure HTTPS Ingress using Nginx (not complete)
+
 ### Create an ingress route (for Træefik)
 
 This step assumes that you already have deployed some service (web application) to test with.
