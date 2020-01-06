@@ -68,7 +68,12 @@ To perform an upgrade:
 $ az aks upgrade --name TestAKSCluster --resource-group TestAKS --kubernetes-version 1.12.6
 ```
 
-### Create a secret for pulling the image from a private registry
+### Configure Azure Container Registry for the AKS cluster (option A, most secure)
+```
+$ az aks update --name TestAKSCluster --resource-group TestAKS --attach-acr <acrName>
+```
+
+### Create a secret for pulling the image from a private registry (option B)
 
 If you want to be able to pull an image from a private Docker registry, you need to create a secret for it.
 
