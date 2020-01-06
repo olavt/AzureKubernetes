@@ -298,7 +298,7 @@ Events:
   Normal  Issued        7m17s  cert-manager  Certificate issued successfully
 ```
 
-## Configure HTTPS Ingress using Nginx (not complete)
+## Configure HTTPS Ingress using Træefik (not complete)
 
 ### Create an ingress route (for Træefik)
 
