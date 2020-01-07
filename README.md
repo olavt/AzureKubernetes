@@ -65,7 +65,12 @@ $ az aks get-versions --output table --location westeurope
 
 To perform an upgrade:
 ```
-$ az aks upgrade --name TestAKSCluster --resource-group TestAKS --kubernetes-version 1.12.6
+$ az aks upgrade --name TestAKSCluster --resource-group TestAKS --kubernetes-version 1.15.7
+```
+
+### Scale the cluster
+```
+$ az aks scale --name TestAKSCluster --resource-group TestAKS --node-count 2
 ```
 
 ### Configure Azure Container Registry for the AKS cluster (option A, most secure)
@@ -106,11 +111,6 @@ $ az aks browse --resource-group TestAKS --name TestAKSCluster
 ### To get the Public IP address of a deployed service
 ```
 $ kubectl get service <service-name>
-```
-
-### Scale the cluster
-```
-$ az aks scale --name TestAKSCluster --resource-group TestAKS --node-count 2
 ```
 
 ## Configure your AKS cluster for Helm
@@ -155,7 +155,9 @@ $ kubectl get service --namespace ingress-nginx
 ### Install the NGINX ingress controller using Helm
 
 ```
-$ helm install nginx-ingress stable/nginx-ingress
+$ kubectl create namespace ingress-nginx
+
+$ helm install nginx-ingress stable/nginx-ingress --namespace ingress-nginx
 ```
 
 During the installation, an Azure public IP address is created for the ingress controller. To get the public IP address, use the kubectl get service command. It may take some time for the IP address to be assigned to the service.
@@ -163,10 +165,10 @@ During the installation, an Azure public IP address is created for the ingress c
 Check the assigned public IP address:
 
 ```
-$ kubectl get service -l app=nginx-ingress
-NAME                                       TYPE           CLUSTER-IP     EXTERNAL-IP    PORT(S)                      AGE
-eager-crab-nginx-ingress-controller        LoadBalancer   10.0.182.160   13.82.238.45   80:30920/TCP,443:30426/TCP   20m
-eager-crab-nginx-ingress-default-backend   ClusterIP      10.0.255.77    <none>         80/TCP                       20m
+$ kubectl get service --namespace ingress-nginx
+NAME                            TYPE           CLUSTER-IP   EXTERNAL-IP     PORT(S)                      AGE
+nginx-ingress-controller        LoadBalancer   10.0.71.15   40.119.152.40   80:30528/TCP,443:32283/TCP   40s
+nginx-ingress-default-backend   ClusterIP      10.0.38.76   <none>          80/TCP                       40s
 ```
 
 ### Configure DNS Name
