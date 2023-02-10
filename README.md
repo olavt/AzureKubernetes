@@ -31,7 +31,7 @@ $ az group create --name TestAKS --location westeurope
 ### Create AKS cluster
 
 ```
-$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys --kubernetes-version 1.16.8
+$ az aks create --resource-group TestAKS --name TestAKSCluster --node-count 1 --node-vm-size Standard_B2s --generate-ssh-keys --kubernetes-version 1.25.5
 ```
 
 The above command will create a 1-node cluster using the VM-size "Standard_B1s". To see what VM-sizes are available in a given location issue the following command:
@@ -155,9 +155,15 @@ $ kubectl get service --namespace ingress-nginx
 ### Install the NGINX ingress controller using Helm
 
 ```
-$ kubectl create namespace ingress-nginx
+NAMESPACE=ingress-nginx
 
-$ helm install nginx-ingress stable/nginx-ingress --namespace ingress-nginx
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+helm install ingress-nginx ingress-nginx/ingress-nginx \
+  --create-namespace \
+  --namespace $NAMESPACE \
+  --set controller.service.annotations."service\.beta\.kubernetes\.io/azure-load-balancer-health-probe-request-path"=/healthz
 ```
 
 During the installation, an Azure public IP address is created for the ingress controller. To get the public IP address, use the kubectl get service command. It may take some time for the IP address to be assigned to the service.
@@ -192,22 +198,13 @@ az network public-ip update --ids $PUBLICIPID --dns-name $DNSNAME
 
 If needed, run the following command to retrieve the FQDN. Update the IP address value with that of your ingress controller.
 ```
-$ az network public-ip list --query "[?ipAddress!=null]|[?contains(ipAddress, '$IP')].[dnsSettings.fqdn]" --output tsv
+$ az network public-ip show --ids $PUBLICIPID --query "[dnsSettings.fqdn]" --output tsv
 ```
 
 ### Install cert-manager (loosely based upon the work of kube-lego)
 
 Run the following script to install cert-manager:
 ```
-# Install the CustomResourceDefinition resources separately
-kubectl apply --validate=false -f https://raw.githubusercontent.com/jetstack/cert-manager/release-0.11/deploy/manifests/00-crds.yaml
-
-# Create the namespace for cert-manager
-kubectl create namespace cert-manager
-
-# Label the cert-manager namespace to disable resource validation
-kubectl label namespace cert-manager cert-manager.io/disable-validation=true
-
 # Add the Jetstack Helm repository
 helm repo add jetstack https://charts.jetstack.io
 
@@ -215,10 +212,12 @@ helm repo add jetstack https://charts.jetstack.io
 helm repo update
 
 # Install the cert-manager Helm chart
-helm install cert-manager \
-  --namespace cert-manager \
-  --version v0.11.0 \
-  jetstack/cert-manager
+helm upgrade cert-manager jetstack/cert-manager \
+    --install \
+    --create-namespace \
+    --wait \
+    --namespace cert-manager \
+    --set installCRDs=true
 ```
 
 ### Create a CA cluster issuer
@@ -228,7 +227,7 @@ Create a cluster issuer, such as cluster-issuer.yaml, using the following exampl
 
 Note! Update the email address with a valid address from your organization:
 ```
-apiVersion: cert-manager.io/v1alpha2
+apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
@@ -256,7 +255,7 @@ This step assumes that you already have deployed some service (web application) 
 
 Create a test-ingress.yaml file with the following content:
 ```
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: test-ingress
@@ -276,8 +275,10 @@ spec:
       paths:
       - path: /
         backend:
-          serviceName: <YourTestService>
-          servicePort: 80
+          service:
+            name: <YourTestService>
+            port:
+              number: 80
 ```
 
 Create the ingress resource with the kubectl apply command:
